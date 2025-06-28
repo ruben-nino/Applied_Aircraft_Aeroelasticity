@@ -101,10 +101,10 @@ def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
         for j in np.arange(no_bound_panels): # cycle through the bound panels
 
             # select corners of j-th panel
-            index_1 = j + np.floor(j/n_v)
-            index_2 = j + np.floor(j / n_v) + 1
-            index_3 = j + np.floor(j / n_v) + n_v + 1
-            index_4 = j + np.floor(j / n_v) + n_v + 2 # this should be correct, but double check if the results are wrong
+            index_1 = int(j + np.floor(j/n_v))
+            index_2 = int(j + np.floor(j / n_v) + 1)
+            index_3 = int(j + np.floor(j / n_v) + n_v + 1)
+            index_4 = int(j + np.floor(j / n_v) + n_v + 2) # this should be correct, but double check if the results are wrong
 
             breakpoint()
             corner_1 = np.array([x_mesh_b[index_1], y_mesh_b[index_1], z_mesh_b[index_1]])
@@ -134,11 +134,11 @@ def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
         for j in np.arange(no_wake_panels):
 
             # select corners of j-th panel
-            index_1 = j + np.floor(j / n_v)
-            index_2 = j + np.floor(j / n_v) + 1
-            index_3 = j + np.floor(j / n_v) + n_v + 1
-            index_4 = j + np.floor(
-                j / n_v) + n_v + 2  # this should be correct, but double check if the results are wrong
+            index_1 = int(j + np.floor(j / n_v))
+            index_2 = int(j + np.floor(j / n_v) + 1)
+            index_3 = int(j + np.floor(j / n_v) + n_v + 1)
+            index_4 =int(j + np.floor(
+                j / n_v) + n_v + 2)  # this should be correct, but double check if the results are wrong
 
             corner_1 = np.array([x_mesh_w[index_1], y_mesh_w[index_1], z_mesh_w[index_1]])
             corner_2 = np.array([x_mesh_w[index_2], y_mesh_w[index_2], z_mesh_w[index_2]])
