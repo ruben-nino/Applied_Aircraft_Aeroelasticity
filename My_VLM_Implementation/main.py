@@ -4,7 +4,7 @@ from numpy import pi
 
 from functions import *
 
-visualize = 1
+visualize = 0
 
 aero_data, _ = load_aero_data()
 chord           = aero_data["c"][0]
@@ -48,3 +48,9 @@ if __name__ == "__main__" and visualize:
     plt.hlines(y = semi_span, xmin= - 0.1, xmax=semi_span)
     plt.show()
     breakpoint()
+
+bound_mesh = np.stack((x_mesh_b, y_mesh_g, z_mesh_g), axis=2)
+wake_mesh  = np.stack((x_mesh_w, y_mesh_w, z_mesh_w), axis=2)
+# breakpoint() # bound_mesh.shape[:] = (11, 17, 3) for m_v = 10 and n_v = 16
+
+# consider n unit vector in the integration step
