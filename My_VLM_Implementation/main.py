@@ -1,3 +1,5 @@
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import pi
@@ -54,7 +56,21 @@ wake_mesh  = np.stack((x_mesh_w, y_mesh_w, z_mesh_w), axis=2)
 control_mesh = np.stack((x_control, y_control, z_control), axis=2)
 # breakpoint() # bound_mesh.shape[:] = (11, 17, 3) for m_v = 10 and n_v = 16
 
-A_b, A_w = aero_influence_coeff_mats(bound_mesh, wake_mesh, control_mesh)
-np.savez('./aero_influence_coeff_mats/nv_16_mv_10', bound=A_b, wake=A_w)
-breakpoint()
+current_dir = os.path.dirname(__file__)
+aero_mats_path = os.path.join(current_dir, 'aero_influence_mats', f'nv_{n_v}_mv_{m_v}.npz')
+
+# Normalize the path
+aero_mats_path = os.path.abspath(aero_mats_path)
+
+if os.path.exists(aero_mats_path):
+    data = np.load(aero_mats_path)
+    A_b = data['bound']
+    A_w = data['wake']
+else:
+    A_b, A_w = aero_influence_coeff_mats(bound_mesh, wake_mesh, control_mesh)
+    np.savez('./aero_influence_coeff_mats/nv_16_mv_10', bound=A_b, wake=A_w)
+
+
+
+
 # consider n unit vector in the integration step

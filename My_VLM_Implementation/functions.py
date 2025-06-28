@@ -10,7 +10,7 @@ def load_aero_data():
 
     # Normalize the path
     json_path = os.path.abspath(json_path)
-    print(json_path)
+    # print(aero_mats_path)
     with open(json_path, mode="r", encoding="utf-8") as read_file:
         all_data = json.load(read_file)
 
@@ -47,7 +47,7 @@ def find_middle_point(x_mesh, y_mesh, z_mesh):
     z_control = np.zeros_like(x_control)
     return x_control, y_control, z_control
 
-# coordinate sys with x as downwind, y right wing and z up
+# coordinate sys with x as downwind, y right wing and z up # todo: add njit decorator to this function (performance critical)
 def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
 
     # need to pass lines in consistent order
