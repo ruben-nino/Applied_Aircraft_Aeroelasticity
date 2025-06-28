@@ -60,13 +60,14 @@ def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
         """
 
         cross_prod = np.cross((control_point - corner_1), (control_point - corner_2))
-        sqr_cross  = np.abs(cross_prod)**2
+        sqr_cross  = np.linalg.norm(cross_prod)**2
 
-        last_term  = (control_point - corner_1)/np.abs((control_point - corner_1)) \
-                     - (control_point - corner_2)/np.abs((control_point - corner_2))
+        last_term  = (control_point - corner_1)/np.linalg.norm((control_point - corner_1)) \
+                     - (control_point - corner_2)/np.linalg.norm((control_point - corner_2))
         dot_prod   = np.dot((corner_2-corner_1), last_term)
 
         result = 1/4/pi * cross_prod / sqr_cross * dot_prod
+        breakpoint()
         return result
 
     x_mesh_b, y_mesh_b, z_mesh_b = [bound_mesh[:,:, i] for i in range(3)]
