@@ -75,7 +75,7 @@ def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
 
     m_v = x_mesh_b.shape[0] - 1 # number of panels, which is one less than the no. of nodes in the considered direction
     n_v = x_mesh_b.shape[1] - 1
-    if n_v != x_mesh_w.shape[1]:
+    if n_v != (x_mesh_w.shape[1] -1):
         raise ValueError("Wake mesh dimensions in the y direction do not match")
     m_w = x_mesh_w.shape[0]  - 1
     no_bound_panels = m_v * n_v
@@ -106,6 +106,7 @@ def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
             index_3 = j + np.floor(j / n_v) + n_v + 1
             index_4 = j + np.floor(j / n_v) + n_v + 2 # this should be correct, but double check if the results are wrong
 
+            breakpoint()
             corner_1 = np.array([x_mesh_b[index_1], y_mesh_b[index_1], z_mesh_b[index_1]])
             corner_2 = np.array([x_mesh_b[index_2], y_mesh_b[index_2], z_mesh_b[index_2]])
             corner_3 = np.array([x_mesh_b[index_3], y_mesh_b[index_3], z_mesh_b[index_3]])

@@ -26,12 +26,12 @@ z_mesh_g = np.zeros_like(x_mesh_g)
 
 # bound mesh
 delta_x = chord / m_v
-x_mesh_b = x_mesh_g + delta_x / 4
+x_mesh_b = x_mesh_g + delta_x / 4 # apply shift downwind
 
 # wake mesh
 x_points_wake = np.linspace(0, c_w_factor * aero_data['c'][0], c_w_factor * m_v + 1 )
-x_points_wake += chord + delta_x / 4
-x_mesh_w, y_mesh_w = np.meshgrid(x_points_wake, y_points)
+x_points_wake += chord + delta_x / 4 # apply shift downwind
+x_mesh_w, y_mesh_w = np.meshgrid(x_points_wake, y_points, indexing='ij')
 z_mesh_w = np.zeros_like(x_mesh_w)
 
 x_control, y_control, z_control = find_middle_point(x_mesh_b, y_mesh_g, z_mesh_g)
@@ -51,6 +51,9 @@ if __name__ == "__main__" and visualize:
 
 bound_mesh = np.stack((x_mesh_b, y_mesh_g, z_mesh_g), axis=2)
 wake_mesh  = np.stack((x_mesh_w, y_mesh_w, z_mesh_w), axis=2)
+control_mesh = np.stack((x_control, y_control, z_control), axis=2)
 # breakpoint() # bound_mesh.shape[:] = (11, 17, 3) for m_v = 10 and n_v = 16
 
+A_b, A_w = aero_influence_coeff_mats(bound_mesh, wake_mesh, control_mesh)
+breakpoint()
 # consider n unit vector in the integration step
