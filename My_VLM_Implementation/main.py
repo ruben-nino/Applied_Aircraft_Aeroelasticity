@@ -4,7 +4,7 @@ from numpy import pi
 
 from functions import *
 
-visualize = 0
+visualize = 1
 
 aero_data, _ = load_aero_data()
 chord           = aero_data["c"][0]
@@ -22,7 +22,7 @@ y_points = np.cos( pi/2 - np.arange( n_v + 1)  * pi/2 / n_v) * semi_span # only 
 
 # geometric mesh
 x_mesh_g, y_mesh_g = np.meshgrid(x_points, y_points, indexing='ij')
-
+z_mesh_g = np.zeros_like(x_mesh_g)
 
 # bound mesh
 delta_x = chord / m_v
@@ -32,13 +32,19 @@ x_mesh_b = x_mesh_g + delta_x / 4
 x_points_wake = np.linspace(0, c_w_factor * aero_data['c'][0], c_w_factor * m_v + 1 )
 x_points_wake += chord + delta_x / 4
 x_mesh_w, y_mesh_w = np.meshgrid(x_points_wake, y_points)
+z_mesh_w = np.zeros_like(x_mesh_w)
 
+x_control, y_control, z_control = find_middle_point(x_mesh_b, y_mesh_g, z_mesh_g)
 
 if __name__ == "__main__" and visualize:
     plt.plot(x_mesh_g, y_mesh_g, '*r')
     plt.plot(x_mesh_b, y_mesh_g, 'ob', markersize=3)
     plt.plot(x_mesh_w, y_mesh_w, '1g')
-    plt.xlim(- 0.1, semi_span)
+    plt.plot(x_control, y_control, '8k', markersize=1)
+
+    # plt.xlim(- 0.025, semi_span)
+    plt.xlim(- 0.025, 0.1)
+
     plt.hlines(y = semi_span, xmin= - 0.1, xmax=semi_span)
     plt.show()
     breakpoint()

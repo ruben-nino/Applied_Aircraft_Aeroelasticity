@@ -35,10 +35,11 @@ def find_middle_point(x_mesh, y_mesh, z_mesh):
     m_v = x_mesh.shape[0] - 1
 
     # Assume mesh is aligned with the x and y directions at first, # todo: implement arbitrary orientation later
-    x_control = y_control = np.zeros((n_v, m_v))
+    x_control = np.zeros((m_v, n_v))
+    y_control = np.zeros((m_v, n_v))
 
-    for i in range(m_v):
-        for j in range(n_v):
+    for i in np.arange(m_v):
+        for j in np.arange(n_v):
             x_control[i, j] = ( x_mesh[i, j] + x_mesh[i + 1, j] ) / 2
             y_control[i, j] = ( y_mesh[i, j] + y_mesh[i, j + 1] ) / 2
 
@@ -46,7 +47,7 @@ def find_middle_point(x_mesh, y_mesh, z_mesh):
     return x_control, y_control, z_control
 
 # coordinate sys with x as downwind, y right wing and z up
-def aero_influence_coeff_mats(bound_mesh, wake_mesh):
+def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
 
     # need to pass lines in consistent order
     def biot_savart_Gam_is_1(control_point: np.ndarray, line:np.ndarray):
@@ -63,11 +64,14 @@ def aero_influence_coeff_mats(bound_mesh, wake_mesh):
         result = 1/4/pi * cross_prod / sqr_cross * dot_prod
         return result
 
-    m_v = bound_mesh.shape[0] - 1 # number of panels, which is one less than the no. of nodes in the considered direction
-    n_v = bound_mesh.shape[1] - 1
-    if n_v != wake_mesh.shape[1]:
+    x_mesh_b, y_mesh_b, z_mesh_b = [bound_mesh[:,:, i] for i in range(3)]
+    x_mesh_w, y_mesh_w, z_mesh_w = [wake_mesh[:,:,i] for i in range(3)]
+
+    m_v = x_mesh_b.shape[0] - 1 # number of panels, which is one less than the no. of nodes in the considered direction
+    n_v = x_mesh_b.shape[1] - 1
+    if n_v != x_mesh_w.shape[1]:
         raise ValueError("Wake mesh dimensions in the y direction do not match")
-    m_w = wake_mesh.shape[0]  - 1
+    m_w = x_mesh_w.shape[0]  - 1
 
     A_b = np.zeros()
 
