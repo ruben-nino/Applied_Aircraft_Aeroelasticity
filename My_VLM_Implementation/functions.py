@@ -1,5 +1,6 @@
 import os
 import json
+import matplotlib.pyplot as plt
 import numpy as np
 from numpy import pi
 
@@ -60,14 +61,22 @@ def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
         """
 
         cross_prod = np.cross((control_point - corner_1), (control_point - corner_2))
-        sqr_cross  = np.linalg.norm(cross_prod)**2
+        sqr_cross  = (cross_prod**2).sum()
 
         last_term  = (control_point - corner_1)/np.linalg.norm((control_point - corner_1)) \
                      - (control_point - corner_2)/np.linalg.norm((control_point - corner_2))
         dot_prod   = np.dot((corner_2-corner_1), last_term)
 
         result = 1/4/pi * cross_prod / sqr_cross * dot_prod
-        breakpoint()
+
+        if np.isnan(result).any():
+            print(f"There are nan entries in the velocity vector obtained from Biot-Savart !!!")
+            plt.plot(corner_1[0], corner_1[1], 'bo')
+            plt.plot(corner_2[0], corner_2[1], 'r*')
+            plt.plot(control_point[0], control_point[1], '8k')
+            plt.show()
+            breakpoint()
+
         return result
 
     x_mesh_b, y_mesh_b, z_mesh_b = [bound_mesh[:,:, i] for i in range(3)]
@@ -104,10 +113,10 @@ def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
             # select corners of j-th panel
             index_1 = int(j + np.floor(j/n_v))
             index_2 = int(j + np.floor(j / n_v) + 1)
-            index_3 = int(j + np.floor(j / n_v) + n_v + 1)
-            index_4 = int(j + np.floor(j / n_v) + n_v + 2) # this should be correct, but double check if the results are wrong
-
-            breakpoint()
+            index_4 = int(j + np.floor(j / n_v) + n_v + 1)
+            index_3 = int(j + np.floor(j / n_v) + n_v + 2) # this should be correct, but double check if the results are wrong
+                                                            # the results were, indeed, wrong due to this line (4 instead of 3)
+            # breakpoint()
             corner_1 = np.array([x_mesh_b[index_1], y_mesh_b[index_1], z_mesh_b[index_1]])
             corner_2 = np.array([x_mesh_b[index_2], y_mesh_b[index_2], z_mesh_b[index_2]])
             corner_3 = np.array([x_mesh_b[index_3], y_mesh_b[index_3], z_mesh_b[index_3]])
@@ -127,7 +136,7 @@ def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
             # also clockwise (hopefully correct)
             vel_unit_vorticity += biot_savart_Gam_is_1(control_point, corner_1_sym, corner_4_sym)
             vel_unit_vorticity += biot_savart_Gam_is_1(control_point, corner_4_sym, corner_3_sym)
-            vel_unit_vorticity += biot_savart_Gam_is_1(control_point, corner_3_sym, corner_3_sym)
+            vel_unit_vorticity += biot_savart_Gam_is_1(control_point, corner_3_sym, corner_2_sym)
             vel_unit_vorticity += biot_savart_Gam_is_1(control_point, corner_2_sym, corner_1_sym)
 
             A_b[:, i, j] = vel_unit_vorticity
@@ -137,8 +146,8 @@ def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
             # select corners of j-th panel
             index_1 = int(j + np.floor(j / n_v))
             index_2 = int(j + np.floor(j / n_v) + 1)
-            index_3 = int(j + np.floor(j / n_v) + n_v + 1)
-            index_4 =int(j + np.floor(
+            index_4 = int(j + np.floor(j / n_v) + n_v + 1)
+            index_3 =int(j + np.floor(
                 j / n_v) + n_v + 2)  # this should be correct, but double check if the results are wrong
 
             corner_1 = np.array([x_mesh_w[index_1], y_mesh_w[index_1], z_mesh_w[index_1]])
@@ -160,11 +169,10 @@ def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
             # also clockwise (hopefully correct)
             vel_unit_vorticity += biot_savart_Gam_is_1(control_point, corner_1_sym, corner_4_sym)
             vel_unit_vorticity += biot_savart_Gam_is_1(control_point, corner_4_sym, corner_3_sym)
-            vel_unit_vorticity += biot_savart_Gam_is_1(control_point, corner_3_sym, corner_3_sym)
+            vel_unit_vorticity += biot_savart_Gam_is_1(control_point, corner_3_sym, corner_2_sym)
             vel_unit_vorticity += biot_savart_Gam_is_1(control_point, corner_2_sym, corner_1_sym)
 
-            A_w[:, i, j] = vel_unit_vorticity
-
+    print("Aerodynamic coefficient matrices computed.")
     return A_b, A_w
 
 

@@ -55,5 +55,6 @@ control_mesh = np.stack((x_control, y_control, z_control), axis=2)
 # breakpoint() # bound_mesh.shape[:] = (11, 17, 3) for m_v = 10 and n_v = 16
 
 A_b, A_w = aero_influence_coeff_mats(bound_mesh, wake_mesh, control_mesh)
+np.savez('./aero_influence_coeff_mats/nv_16_mv_10', bound=A_b, wake=A_w)
 breakpoint()
 # consider n unit vector in the integration step
