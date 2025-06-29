@@ -149,4 +149,36 @@ def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
     print("Aerodynamic coefficient matrices computed.")
     return A_b, A_w
 
+def solve_steady_aero(alphas, aero_data, A_w, A_b, y_mesh, reduced_wake=True):
 
+    if reduced_wake:
+        n_v = A_w.shape[2]
+        m_v = int(A_b.shape[1] / n_v)
+        P_b = np.concatenate([np.zeros((n_v, (m_v-1) * n_v)), np.eye(n_v)], axis=1)
+
+    """
+    with the assumption that all of the panels are aligned with the x and y axes, we can just take the z component of
+    the first dimension in the A matrices (which corresponds to the z component of the velocity vectors obtained upon
+    multiplication by the respective vorticity vectors)
+    """
+    uz_component = np.s_[2, :, :]
+    A_b = A_b[uz_component]
+    A_w = A_w[uz_component]
+
+    combined_mats = A_b + A_w @ P_b
+    ones = np.ones((A_b.shape[0], 1))
+    delta_y_vec = y_mesh[0:n_v] - y_mesh[1:(n_v+1)]
+    delta_y_vec = np.tile(delta_y_vec, m_v)
+    G_y = np.eye(m_v*n_v) - np.concatenate(
+                                            [np.zeros( (n_v, m_v*n_v) ),
+                            np.concatenate( [np.eye((m_v-1)*n_v), np.zeros(((m_v-1)*n_v, n_v))],
+                                                           axis=1) ],
+                                           axis=0)
+
+    F_a = np.zeros((len(alphas), A_b.shape[1]) ).T
+    for i, alpha in enumerate(alphas):
+        Gamma_b = - np.linalg.inv(combined_mats) @ ones * np.sin(alpha) * aero_data['v0']
+        result = aero_data['v0'] * aero_data['rho'] * np.cos(alpha) * (G_y * delta_y_vec) @ Gamma_b
+        F_a[:,i:i+1] = result
+
+    return F_a

@@ -79,5 +79,12 @@ else: # calculate the matrices
 
 # %% Run Integration
 
+# %% Solve for Steady-State solution
+
 # Assume that n (panel unit vector) is [0, 0, 1] for all panels
+AOAs = np.array([1, 3, 10]) * (np.pi/180)
+y_points = np.cos(pi / 2 - np.arange(n_v + 1) * pi / 2 / n_v) * semi_span
+F_aero = solve_steady_aero(AOAs, aero_data, A_w, A_b, y_points)
+
+
 
