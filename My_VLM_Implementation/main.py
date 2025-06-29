@@ -18,9 +18,13 @@ semi_span       = aero_data['s']
 n_v = 16
 m_v = 10
 c_w_factor = 10 # to multiply by c to obtain the wake length * aero_data['c'][0]
+reduced_wake = 1
 
 current_dir = os.path.dirname(__file__)
-aero_mats_path = os.path.join(current_dir, 'aero_influence_mats', f'nv_{n_v}_mv_{m_v}.npz')
+if reduced_wake:
+    aero_mats_path = os.path.join(current_dir, 'aero_influence_coeff_mats', f'nv_{n_v}_mv_{m_v}_steady.npz')
+else:
+    aero_mats_path = os.path.join(current_dir, 'aero_influence_coeff_mats', f'nv_{n_v}_mv_{m_v}.npz')
 
 # Normalize the path
 aero_mats_path = os.path.abspath(aero_mats_path)
@@ -43,7 +47,11 @@ else: # calculate the matrices
     x_mesh_b = x_mesh_g + delta_x / 4  # apply shift downwind
 
     # wake mesh
-    x_points_wake = np.linspace(0, c_w_factor * aero_data['c'][0], c_w_factor * m_v + 1)
+    if reduced_wake:
+        x_points_wake = np.array([0, c_w_factor * chord])
+    else:
+        x_points_wake = np.linspace(0, c_w_factor * chord, c_w_factor * m_v + 1)
+
     x_points_wake += chord + delta_x / 4  # apply shift downwind
     x_mesh_w, y_mesh_w = np.meshgrid(x_points_wake, y_points, indexing='ij')
     z_mesh_w = np.zeros_like(x_mesh_w)
