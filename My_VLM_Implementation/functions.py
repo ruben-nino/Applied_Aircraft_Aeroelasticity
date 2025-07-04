@@ -3,6 +3,7 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import pi
+# import numba
 
 def load_aero_data():
     current_dir = os.path.dirname(__file__)
@@ -48,26 +49,30 @@ def find_middle_point(x_mesh, y_mesh, z_mesh):
     return x_control, y_control, z_control
 
 # coordinate sys with x as downwind, y right wing and z up # todo: add njit decorator to this function (performance critical)
+# @njit
 def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
 
-    def calc_velocity_panel_and_sym(panel_index, no_panels_span_direction, x_mesh, y_mesh, z_mesh):
-        # select corners of j-th panel
-        index_1 = int(panel_index + np.floor(panel_index / no_panels_span_direction))
-        index_2 = int(panel_index + np.floor(panel_index / no_panels_span_direction) + 1)
-        index_4 = int(panel_index + np.floor(panel_index / no_panels_span_direction) + no_panels_span_direction + 1)
-        index_3 = int(
-            panel_index + np.floor(panel_index / n_v) + n_v + 2)  # this should be correct, but double check if the results are wrong
-        # the results were, indeed, wrong due to this line (4 instead of 3)
-        # breakpoint()
-        corner_1 = np.array([x_mesh[index_1], y_mesh[index_1], z_mesh[index_1]])
-        corner_2 = np.array([x_mesh[index_2], y_mesh[index_2], z_mesh[index_2]])
-        corner_3 = np.array([x_mesh[index_3], y_mesh[index_3], z_mesh[index_3]])
-        corner_4 = np.array([x_mesh[index_4], y_mesh[index_4], z_mesh[index_4]])
+    def calc_velocity_panel_and_sym(control_point_index, panel_index, control_points_mesh, corner_points_mesh):
+        def point_from_mesh(mesh, index):
+            point = np.array([mesh[0, index], mesh[1, index], mesh[2, index]])
+            return point
 
-        corner_1_sym = corner_1 * np.array([1, -1, 1])
-        corner_2_sym = corner_2 * np.array([1, -1, 1])
-        corner_3_sym = corner_3 * np.array([1, -1, 1])
-        corner_4_sym = corner_4 * np.array([1, -1, 1])
+        # select control point and corresponding symmetric twin
+        control_point = point_from_mesh(control_points_mesh, control_point_index)
+        control_point_sym = control_point * np.array([1, -1, 1]) # x-z plane symmetry
+
+        # select corners of j-th panel
+        index_1 = int(panel_index + np.floor(panel_index / n_v))
+        index_2 = int(panel_index + np.floor(panel_index / n_v) + 1)
+        index_4 = int(panel_index + np.floor(panel_index / n_v) + n_v + 1)
+        index_3 = int(panel_index + np.floor(panel_index / n_v) + n_v + 2)  # this should be
+                                                                    # correct, but double check if the results are wrong
+                                                    # the results were, indeed, wrong due to this line (_4 instead of 3)
+
+        corner_1 = point_from_mesh(corner_points_mesh, index_1)
+        corner_2 = point_from_mesh(corner_points_mesh, index_2)
+        corner_3 = point_from_mesh(corner_points_mesh, index_3)
+        corner_4 = point_from_mesh(corner_points_mesh, index_4)
 
         # need to pass lines in consistent order => clockwise from -z view
         vel_unit_vorticity = biot_savart_Gam_is_1(control_point, corner_1, corner_2)
@@ -75,36 +80,35 @@ def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
         vel_unit_vorticity += biot_savart_Gam_is_1(control_point, corner_3, corner_4)
         vel_unit_vorticity += biot_savart_Gam_is_1(control_point, corner_4, corner_1)
 
-        # also clockwise (hopefully correct)
-        vel_unit_vorticity += biot_savart_Gam_is_1(control_point, corner_1_sym, corner_4_sym)
-        vel_unit_vorticity += biot_savart_Gam_is_1(control_point, corner_4_sym, corner_3_sym)
-        vel_unit_vorticity += biot_savart_Gam_is_1(control_point, corner_3_sym, corner_2_sym)
-        vel_unit_vorticity += biot_savart_Gam_is_1(control_point, corner_2_sym, corner_1_sym)
+        vel_unit_vorticity += biot_savart_Gam_is_1(control_point_sym, corner_1, corner_2)
+        vel_unit_vorticity += biot_savart_Gam_is_1(control_point_sym, corner_2, corner_3)
+        vel_unit_vorticity += biot_savart_Gam_is_1(control_point_sym, corner_3, corner_4)
+        vel_unit_vorticity += biot_savart_Gam_is_1(control_point_sym, corner_4, corner_1)
 
         return vel_unit_vorticity
 
-    def biot_savart_Gam_is_1(control_point: np.ndarray, corner_1, corner_2):
+    def biot_savart_Gam_is_1(control_point: np.ndarray, line_end_1, line_end_2):
         """
         Calculates the velocity vector in 3D space from the contribution of one section of vortex line with normalized
         vorticity, according to the Biot-Savart law
         :param control_point: Point in which the velocity vector is calculated, given as np.array([x, y, z])
-        :param line: Start and end points of the vortex line, given as np.array([[x, y, z],[x, y, z]])
+        :param line_end_1: Start and end points of the vortex line, given as np.array([[x, y, z],[x, y, z]])
         :return: Velocity vector in the control point
         """
 
-        cross_prod = np.cross((control_point - corner_1), (control_point - corner_2))
+        cross_prod = np.cross((control_point - line_end_1), (control_point - line_end_2))
         sqr_cross  = (cross_prod**2).sum()
 
-        last_term  = (control_point - corner_1)/np.linalg.norm((control_point - corner_1)) \
-                     - (control_point - corner_2)/np.linalg.norm((control_point - corner_2))
-        dot_prod   = np.dot((corner_2-corner_1), last_term)
+        last_term  = (control_point - line_end_1) / np.linalg.norm((control_point - line_end_1)) \
+                     - (control_point - line_end_2) / np.linalg.norm((control_point - line_end_2))
+        dot_prod   = np.dot((line_end_2 - line_end_1), last_term)
 
         result = 1/4/pi * cross_prod / sqr_cross * dot_prod
 
         if np.isnan(result).any():
             print(f"There are nan entries in the velocity vector obtained from Biot-Savart !!!")
-            plt.plot(corner_1[0], corner_1[1], 'bo')
-            plt.plot(corner_2[0], corner_2[1], 'r*')
+            plt.plot(line_end_1[0], line_end_1[1], 'bo')
+            plt.plot(line_end_2[0], line_end_2[1], 'r*')
             plt.plot(control_point[0], control_point[1], '8k')
             plt.show()
             breakpoint()
@@ -137,14 +141,15 @@ def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
     y_mesh_w = y_mesh_w.flatten()
     z_mesh_w = z_mesh_w.flatten()
 
+    bound_mesh      = np.stack((x_mesh_b, y_mesh_b, z_mesh_b), axis=0)
+    control_mesh    = np.stack((x_mesh_c, y_mesh_c, z_mesh_c), axis=0)
+    wake_mesh       = np.stack((x_mesh_w, y_mesh_w, z_mesh_w), axis=0)
+
     for i in np.arange(no_bound_panels): # cycle through the control points
-        control_point = np.array([x_mesh_c[i], y_mesh_c[i], z_mesh_c[i]])
-
         for j in np.arange(no_bound_panels): # cycle through the bound panels
-            A_b[:, i, j] = calc_velocity_panel_and_sym(j, n_v, x_mesh_b, y_mesh_b, z_mesh_b)
-
+            A_b[:, i, j] = calc_velocity_panel_and_sym(i, j, control_mesh, bound_mesh)
         for j in np.arange(no_wake_panels): # cycle through the wake panels
-           A_w[:,i,j] = calc_velocity_panel_and_sym(j, n_v, x_mesh_w, y_mesh_w, z_mesh_w)
+           A_w[:,i,j] = calc_velocity_panel_and_sym(i, j, control_mesh, wake_mesh)
 
     print("Aerodynamic coefficient matrices computed.")
     return A_b, A_w
@@ -176,9 +181,11 @@ def solve_steady_aero(alphas, aero_data, A_w, A_b, y_mesh, reduced_wake=True):
                                            axis=0)
 
     F_a = np.zeros((len(alphas), A_b.shape[1]) ).T
+
     for i, alpha in enumerate(alphas):
         Gamma_b = - np.linalg.inv(combined_mats) @ ones * np.sin(alpha) * aero_data['v0']
         result = aero_data['v0'] * aero_data['rho'] * np.cos(alpha) * (G_y * delta_y_vec) @ Gamma_b
         F_a[:,i:i+1] = result
 
     return F_a
+
