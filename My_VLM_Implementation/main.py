@@ -12,7 +12,7 @@ aero_data, _ = load_aero_data()
 chord           = aero_data["c"][0]
 semi_span       = aero_data['s']
 
-# %% Generate meshes
+# %% Test Aero Influence Coeff Mats Generation
 
 # number of panels for half the wing (we're using symmetry)
 n_v = 16
@@ -29,7 +29,7 @@ else:
 # Normalize the path
 aero_mats_path = os.path.abspath(aero_mats_path)
 
-if os.path.exists(aero_mats_path):
+if not os.path.exists(aero_mats_path):
     data = np.load(aero_mats_path)
     A_b = data['bound']
     A_w = data['wake']
@@ -83,6 +83,7 @@ else: # calculate the matrices
 
 # Assume that n (panel unit vector) is [0, 0, 1] for all panels
 AOAs = np.array([1, 3, 10]) * (np.pi/180)
-y_points = np.cos(pi / 2 - np.arange(n_v + 1) * pi / 2 / n_v) * semi_span
+y_points = np.cos(pi / 2 - np.arange(n_v + 1) * pi / 2 / n_v) * semi_span # needed to calculate delta y of each row of panels
+
 F_aero = solve_steady_aero(AOAs, aero_data, A_w, A_b, y_points)
 
