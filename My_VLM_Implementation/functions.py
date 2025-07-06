@@ -20,6 +20,7 @@ def load_aero_data():
 
         return aero_data, aero_data_description
 
+@njit
 def find_middle_point(x_mesh, y_mesh, z_mesh):
     """
     Given a rectangular mesh in 3D space returns the mesh of the corresponding middle points for each of the rectangles.
@@ -156,43 +157,68 @@ def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
             A_b[:, i, j] = calc_velocity_panel_and_sym(n_v, i, j, control_mesh, bound_mesh)
         for j in np.arange(no_wake_panels): # cycle through the wake panels
             A_w[:,i,j] = calc_velocity_panel_and_sym(n_v, i, j, control_mesh, wake_mesh)
-
-    print("Aerodynamic coefficient matrices computed.")
     return A_b, A_w
 
-def solve_steady_aero(alphas, aero_data, A_w, A_b, y_mesh, reduced_wake=True):
+@njit
+def solve_steady_aero(alpha, v_0, rho, A_w, A_b, y_mesh, reduced_wake=True):
 
-    if reduced_wake:
+    if reduced_wake: # since we are calculating the steady solution it makes sense that the wake would be reduced (long panels).
         n_v = A_w.shape[2]
         m_v = int(A_b.shape[1] / n_v)
-        P_b = np.concatenate([np.zeros((n_v, (m_v-1) * n_v)), np.eye(n_v)], axis=1)
+        P_b = np.hstack(
+                            (np.zeros((n_v, (m_v-1) * n_v)), np.eye(n_v))
+                        )
 
     """
     with the assumption that all of the panels are aligned with the x and y axes, we can just take the z component of
     the first dimension in the A matrices (which corresponds to the z component of the velocity vectors obtained upon
     multiplication by the respective vorticity vectors)
     """
-    uz_component = np.s_[2, :, :]
-    A_b = A_b[uz_component]
-    A_w = A_w[uz_component]
+    # uz_component = np.s_[2, :, :] # slice objects are not supported by njit
+    A_b = A_b[2, :, :]
+    A_w = A_w[2, :, :]
+
+    #NumbaPerformanceWarning: '@' is faster on contiguous arrays, called on (Array(float64, 2, 'A', False, aligned=True), Array(float64, 2, 'C', False, aligned=True))
+    A_b = np.ascontiguousarray(A_b)
+    A_w = np.ascontiguousarray(A_w)
+    P_b = np.ascontiguousarray(P_b)
 
     combined_mats = A_b + A_w @ P_b
     ones = np.ones((A_b.shape[0], 1))
     delta_y_vec = y_mesh[0:n_v] - y_mesh[1:(n_v+1)]
-    delta_y_vec = np.tile(delta_y_vec, m_v)
-    G_y = np.eye(m_v*n_v) - np.concatenate(
-                                            [np.zeros( (n_v, m_v*n_v) ),
-                            np.concatenate( [np.eye((m_v-1)*n_v), np.zeros(((m_v-1)*n_v, n_v))],
-                                                           axis=1) ],
-                                           axis=0)
+    # delta_y_vec = np.tile(delta_y_vec, m_v) # np.tile is not supported either (this is a bit of a pain in the butt)
+    full_delta_y = np.empty(n_v * m_v)
+    for i in range(m_v):
+        full_delta_y[i * n_v: (i + 1) * n_v] = delta_y_vec
+    G_y = np.eye(m_v*n_v) - np.vstack(
+                                        (np.zeros( (n_v, m_v*n_v) ),
+                                        np.hstack(
+                                            (np.eye((m_v-1)*n_v), np.zeros(((m_v-1)*n_v, n_v)))
+                                                 )
+                                        )
+                                    )
 
-    F_a = np.zeros((len(alphas), A_b.shape[1]) ).T
+    # calculate both "lift" and "drag" (quotation marks since lift should be perpendicular to the free stream,
+    # see pg 33 of chapter 10 Introduction to nonlinear aeroelasticity)
 
-    for i, alpha in enumerate(alphas):
-        Gamma_b = - np.linalg.inv(combined_mats) @ ones * np.sin(alpha) * aero_data['v0']
-        result = aero_data['v0'] * aero_data['rho'] * np.cos(alpha) * (G_y * delta_y_vec) @ Gamma_b
-        F_a[:,i:i+1] = result
+    Gamma_b = - np.linalg.inv(combined_mats) @ ones * np.sin(alpha) * v_0
+    normal      = v_0 * rho * np.cos(alpha) * (G_y * full_delta_y) @ Gamma_b
+    in_plane    = v_0 * rho * np.sin(alpha) * (G_y * full_delta_y) @ Gamma_b
 
-    return F_a
+    return normal, in_plane
 
-# def convergence_study()
+@njit
+def aero_post_process(L_dist, D_dist, U, rho, S):
+
+    L = 2 * - L_dist.sum() # * 2 to account for the whole wing and - since it's z positive downwards
+    D = 2 * D_dist.sum()
+
+    C_L = L / (1/2 * rho * U**2 * S)
+    C_D = D / (1/2 * rho * U**2 * S)
+    return L, D, C_L, C_D
+
+
+
+
+
+

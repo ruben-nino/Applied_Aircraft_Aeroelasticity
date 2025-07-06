@@ -1,12 +1,14 @@
 import os
-
+import time
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import pi
 
 from functions import *
 
-visualize = 0
+test = 1
+visualize_mesh = 0
+visualize_aero = 1
 
 aero_data, _ = load_aero_data()
 chord           = aero_data["c"][0]
@@ -14,76 +16,87 @@ semi_span       = aero_data['s']
 
 # %% Test Aero Influence Coeff Mats Generation
 
-# number of panels for half the wing (we're using symmetry)
-n_v = 16
-m_v = 10
-c_w_factor = 10 # to multiply by c to obtain the wake length * aero_data['c'][0]
-reduced_wake = 1
+if test:
+    # number of panels for half the wing (we're using symmetry)
+    n_v = 16
+    m_v = 10
+    c_w_factor = 10 # to multiply by c to obtain the wake length * aero_data['c'][0]
+    reduced_wake = 1
 
-current_dir = os.path.dirname(__file__)
-if reduced_wake:
-    aero_mats_path = os.path.join(current_dir, 'aero_influence_coeff_mats', f'nv_{n_v}_mv_{m_v}_steady.npz')
-else:
-    aero_mats_path = os.path.join(current_dir, 'aero_influence_coeff_mats', f'nv_{n_v}_mv_{m_v}.npz')
-
-# Normalize the path
-aero_mats_path = os.path.abspath(aero_mats_path)
-
-if not os.path.exists(aero_mats_path):
-    data = np.load(aero_mats_path)
-    A_b = data['bound']
-    A_w = data['wake']
-else: # calculate the matrices
-    x_points = np.linspace(0, chord, m_v + 1)
-    y_points = np.cos(
-        pi / 2 - np.arange(n_v + 1) * pi / 2 / n_v) * semi_span  # only mesh half the wing (use symmetry wrt zx plane)
-
-    # geometric mesh
-    x_mesh_g, y_mesh_g = np.meshgrid(x_points, y_points, indexing='ij')
-    z_mesh_g = np.zeros_like(x_mesh_g)
-
-    # bound mesh
-    delta_x = chord / m_v
-    x_mesh_b = x_mesh_g + delta_x / 4  # apply shift downwind
-
-    # wake mesh
+    current_dir = os.path.dirname(__file__)
     if reduced_wake:
-        x_points_wake = np.array([0, c_w_factor * chord])
+        aero_mats_path = os.path.join(current_dir, 'aero_influence_coeff_mats', f'nv_{n_v}_mv_{m_v}_steady.npz')
     else:
-        x_points_wake = np.linspace(0, c_w_factor * chord, c_w_factor * m_v + 1)
+        aero_mats_path = os.path.join(current_dir, 'aero_influence_coeff_mats', f'nv_{n_v}_mv_{m_v}.npz')
 
-    x_points_wake += chord + delta_x / 4  # apply shift downwind
-    x_mesh_w, y_mesh_w = np.meshgrid(x_points_wake, y_points, indexing='ij')
-    z_mesh_w = np.zeros_like(x_mesh_w)
+    # Normalize the path
+    aero_mats_path = os.path.abspath(aero_mats_path)
 
-    x_control, y_control, z_control = find_middle_point(x_mesh_b, y_mesh_g, z_mesh_g)
+    if os.path.exists(aero_mats_path):
+        print("Loading previously computed Aerodynamic Influence Coefficients (AIC) matrices")
+        data = np.load(aero_mats_path)
+        A_b = data['bound']
+        A_w = data['wake']
+    else: # calculate the matrices
+        print("Computing Aerodynamic Influence Coefficients (AIC) matrices")
+        start_time = time.time()
 
-    if __name__ == "__main__" and visualize:
-        plt.plot(x_mesh_g, y_mesh_g, '*r')
-        plt.plot(x_mesh_b, y_mesh_g, 'ob', markersize=3)
-        plt.plot(x_mesh_w, y_mesh_w, '1g')
-        plt.plot(x_control, y_control, '8k', markersize=1)
-        # plt.xlim(- 0.025, semi_span)
-        plt.xlim(- 0.025, 0.1)
-        plt.hlines(y=semi_span, xmin=- 0.1, xmax=semi_span)
-        plt.show()
-        breakpoint()
+        x_points = np.linspace(0, chord, m_v + 1)
+        y_points = np.cos(
+            pi / 2 - np.arange(n_v + 1) * pi / 2 / n_v) * semi_span  # only mesh half the wing (use symmetry wrt zx plane)
 
-    bound_mesh = np.stack((x_mesh_b, y_mesh_g, z_mesh_g), axis=2)
-    wake_mesh = np.stack((x_mesh_w, y_mesh_w, z_mesh_w), axis=2)
-    control_mesh = np.stack((x_control, y_control, z_control), axis=2)
-    # breakpoint() # bound_mesh.shape[:] = (11, 17, 3) for m_v = 10 and n_v = 16
+        # geometric mesh
+        x_mesh_g, y_mesh_g = np.meshgrid(x_points, y_points, indexing='ij')
+        z_mesh_g = np.zeros_like(x_mesh_g)
 
-    A_b, A_w = aero_influence_coeff_mats(bound_mesh, wake_mesh, control_mesh)
-    np.savez(aero_mats_path, bound=A_b, wake=A_w)
+        # bound mesh
+        delta_x = chord / m_v
+        x_mesh_b = x_mesh_g + delta_x / 4  # apply shift downwind
 
-# %% Run Integration
+        # wake mesh
+        if reduced_wake:
+            x_points_wake = np.array([0, c_w_factor * chord])
+        else:
+            x_points_wake = np.linspace(0, c_w_factor * chord, c_w_factor * m_v + 1)
 
-# %% Solve for Steady-State solution
+        x_points_wake += chord + delta_x / 4  # apply shift downwind
+        x_mesh_w, y_mesh_w = np.meshgrid(x_points_wake, y_points, indexing='ij')
+        z_mesh_w = np.zeros_like(x_mesh_w)
 
-# Assume that n (panel unit vector) is [0, 0, 1] for all panels
-AOAs = np.array([1, 3, 10]) * (np.pi/180)
-y_points = np.cos(pi / 2 - np.arange(n_v + 1) * pi / 2 / n_v) * semi_span # needed to calculate delta y of each row of panels
+        x_control, y_control, z_control = find_middle_point(x_mesh_b, y_mesh_g, z_mesh_g)
 
-F_aero = solve_steady_aero(AOAs, aero_data, A_w, A_b, y_points)
+        if __name__ == "__main__" and visualize_mesh:
+            plt.plot(x_mesh_g, y_mesh_g, '*r')
+            plt.plot(x_mesh_b, y_mesh_g, 'ob', markersize=3)
+            plt.plot(x_mesh_w, y_mesh_w, '1g')
+            plt.plot(x_control, y_control, '8k', markersize=1)
+            # plt.xlim(- 0.025, semi_span)
+            plt.xlim(- 0.025, 0.1)
+            plt.hlines(y=semi_span, xmin=- 0.1, xmax=semi_span)
+            plt.show()
+            breakpoint()
+
+        bound_mesh = np.stack((x_mesh_b, y_mesh_g, z_mesh_g), axis=2)
+        wake_mesh = np.stack((x_mesh_w, y_mesh_w, z_mesh_w), axis=2)
+        control_mesh = np.stack((x_control, y_control, z_control), axis=2)
+        # breakpoint() # bound_mesh.shape[:] = (11, 17, 3) for m_v = 10 and n_v = 16
+
+        A_b, A_w = aero_influence_coeff_mats(bound_mesh, wake_mesh, control_mesh)
+        end_time = time.time()
+        print(f"AIC matrices computed in {end_time - start_time:.3f} seconds.")
+        np.savez(aero_mats_path, bound=A_b, wake=A_w)
+
+    # %% Run Integration
+
+    # %% Solve for Steady-State solution
+
+    # Assume that n (panel unit vector) is [0, 0, 1] for all panels
+    AOAs = np.array([1, 3, 10]) * (np.pi/180)
+    y_points = np.cos(pi / 2 - np.arange(n_v + 1) * pi / 2 / n_v) * semi_span # needed to calculate delta y of each row of panels
+
+    F_aero = solve_steady_aero(AOAs, aero_data['v0'],  aero_data['rho'], A_w, A_b, y_points)
+    # breakpoint() # F_aero.shape[:] = (n_v*m_v, 3)
+    if __name__ == "__main__" and visualize_aero:
+        ax = plt.figure().add_subplot(projection='3d')
+        # just realized that this is not really needed, stick to required points and do this if I have time afterwards
 
