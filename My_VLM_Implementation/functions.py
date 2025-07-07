@@ -20,6 +20,17 @@ def load_aero_data():
 
         return aero_data, aero_data_description
 
+def load_TangDowell_data():
+    current_dir = os.path.dirname(__file__)
+    json_path = os.path.join(current_dir, '..', 'Configurations', 'wing_TangDowell.json')
+
+    # Normalize the path
+    json_path = os.path.abspath(json_path)
+    # print(aero_mats_path)
+    with open(json_path, mode="r", encoding="utf-8") as read_file:
+        all_data = json.load(read_file)
+        return all_data
+
 @njit
 def find_middle_point(x_mesh, y_mesh, z_mesh):
     """
@@ -160,7 +171,7 @@ def aero_influence_coeff_mats(bound_mesh, wake_mesh, control_points):
     return A_b, A_w
 
 @njit
-def solve_steady_aero(alpha, v_0, rho, A_w, A_b, y_mesh, reduced_wake=True):
+def solve_steady_aero(alpha0, v_0, rho, A_w, A_b, y_mesh, reduced_wake=True):
 
     if reduced_wake: # since we are calculating the steady solution it makes sense that the wake would be reduced (long panels).
         n_v = A_w.shape[2]
@@ -201,9 +212,9 @@ def solve_steady_aero(alpha, v_0, rho, A_w, A_b, y_mesh, reduced_wake=True):
     # calculate both "lift" and "drag" (quotation marks since lift should be perpendicular to the free stream,
     # see pg 33 of chapter 10 Introduction to nonlinear aeroelasticity)
 
-    Gamma_b = - np.linalg.inv(combined_mats) @ ones * np.sin(alpha) * v_0
-    normal      = v_0 * rho * np.cos(alpha) * (G_y * full_delta_y) @ Gamma_b
-    in_plane    = v_0 * rho * np.sin(alpha) * (G_y * full_delta_y) @ Gamma_b
+    Gamma_b = - np.linalg.inv(combined_mats) @ ones * np.sin(alpha0) * v_0
+    normal      = v_0 * rho * np.cos(alpha0) * (G_y * full_delta_y) @ Gamma_b
+    in_plane    = v_0 * rho * np.sin(alpha0) * (G_y * full_delta_y) @ Gamma_b # I think this is wrong actually
 
     return normal, in_plane
 
@@ -216,7 +227,6 @@ def aero_post_process(L_dist, D_dist, U, rho, S):
     C_L = L / (1/2 * rho * U**2 * S)
     C_D = D / (1/2 * rho * U**2 * S)
     return L, D, C_L, C_D
-
 
 
 

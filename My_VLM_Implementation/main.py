@@ -18,14 +18,14 @@ semi_span       = aero_data['s']
 
 if test:
     # number of panels for half the wing (we're using symmetry)
-    n_v = 16
-    m_v = 10
-    c_w_factor = 10 # to multiply by c to obtain the wake length * aero_data['c'][0]
+    n_v = 48
+    m_v = 30
+    c_w_factor = 15 # to multiply by c to obtain the wake length * aero_data['c'][0]
     reduced_wake = 1
 
     current_dir = os.path.dirname(__file__)
     if reduced_wake:
-        aero_mats_path = os.path.join(current_dir, 'aero_influence_coeff_mats', f'nv_{n_v}_mv_{m_v}_steady.npz')
+        aero_mats_path = os.path.join(current_dir, 'aero_influence_coeff_mats', f'nv_{n_v}_mv_{m_v}_cw_{c_w_factor}_steady.npz')
     else:
         aero_mats_path = os.path.join(current_dir, 'aero_influence_coeff_mats', f'nv_{n_v}_mv_{m_v}.npz')
 
@@ -94,7 +94,7 @@ if test:
     AOAs = np.array([1, 3, 10]) * (np.pi/180)
     y_points = np.cos(pi / 2 - np.arange(n_v + 1) * pi / 2 / n_v) * semi_span # needed to calculate delta y of each row of panels
 
-    F_aero = solve_steady_aero(AOAs, aero_data['v0'],  aero_data['rho'], A_w, A_b, y_points)
+    F_aero = solve_steady_aero(AOAs, aero_data['v0'], aero_data['rho'], A_w, A_b, y_points)
     # breakpoint() # F_aero.shape[:] = (n_v*m_v, 3)
     if __name__ == "__main__" and visualize_aero:
         ax = plt.figure().add_subplot(projection='3d')
