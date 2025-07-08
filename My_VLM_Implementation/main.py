@@ -7,7 +7,7 @@ from numpy import pi
 from functions import *
 
 test = 1
-visualize_mesh = 0
+visualize_mesh = 1
 visualize_aero = 1
 
 aero_data, _ = load_aero_data()
@@ -18,8 +18,8 @@ semi_span       = aero_data['s']
 
 if test:
     # number of panels for half the wing (we're using symmetry)
-    n_v = 48
-    m_v = 30
+    n_v = 8
+    m_v = 5
     c_w_factor = 15 # to multiply by c to obtain the wake length * aero_data['c'][0]
     reduced_wake = 1
 
@@ -66,14 +66,22 @@ if test:
         x_control, y_control, z_control = find_middle_point(x_mesh_b, y_mesh_g, z_mesh_g)
 
         if __name__ == "__main__" and visualize_mesh:
-            plt.plot(x_mesh_g, y_mesh_g, '*r')
-            plt.plot(x_mesh_b, y_mesh_g, 'ob', markersize=3)
-            plt.plot(x_mesh_w, y_mesh_w, '1g')
-            plt.plot(x_control, y_control, '8k', markersize=1)
+            plt.hlines(y=semi_span, xmin=- 0, xmax=chord, color='b', label='Physical Wing Edges')
+            plt.plot(x_mesh_g.flatten(), y_mesh_g.flatten(), '*b', label='Geometric Panel Vertices')
+            plt.plot(x_mesh_b.flatten(), y_mesh_g.flatten(), 'or', label='Bound Panel Vertices', markersize=3)
+            plt.plot(x_mesh_w.flatten(), y_mesh_w.flatten(), '1g', markersize=5)
+            plt.plot(x_control.flatten(), y_control.flatten(), '+k', label='Control Points', markersize=5)
             # plt.xlim(- 0.025, semi_span)
-            plt.xlim(- 0.025, 0.1)
-            plt.hlines(y=semi_span, xmin=- 0.1, xmax=semi_span)
-            plt.show()
+            plt.xlim(- 0.025, 0.15)
+            plt.vlines(x=[0, chord], ymin=0, ymax=semi_span, color='b')
+            plt.hlines(y=y_points, xmin= chord+delta_x/4, xmax=chord * 10, color='g')
+            plt.vlines(x= chord + delta_x/4, ymin=0, ymax=semi_span, color='g', label='Wake Vortices Edges')
+            plt.xlabel('x [m]')
+            plt.ylabel('y [m]')
+            plt.legend(loc='center right')
+            plt.tight_layout()
+            plt.savefig('Geometry_and_Mesh.png', format='png')
+            # plt.show()
             breakpoint()
 
         bound_mesh = np.stack((x_mesh_b, y_mesh_g, z_mesh_g), axis=2)

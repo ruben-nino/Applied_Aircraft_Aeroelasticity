@@ -61,7 +61,7 @@ if __name__ == '__main__':
 
         L, _ = solve_steady_aero(aoa0, U, rho, A_w, A_b, y_points)
         L = L.reshape((m_v, n_v))
-        # Assemble control points mesh
+
 
         xi, f_rigid, y_control = solve_deflections(fem, n_dof, n_nd, y_nd, L, ac, chord, semi_span, n_v, m_v, b_u)
 

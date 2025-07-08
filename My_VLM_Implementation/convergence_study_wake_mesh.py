@@ -124,7 +124,7 @@ else:
     print(f'Convergence was not achieved within the given number of maximum iterations')
 fig, ax = plt.subplots()
 ax.plot( np.arange(1, 31),results[0, :], 'ro--', label = r'$C_L(\alpha=$'+f'{AoA_deg:.0f} deg)' )
-ax.plot(np.arange(1, i+2), results[1, :i+1],  'b*--', label = r'$C_D$' )
+# ax.plot(np.arange(1, i+2), results[1, :i+1],  'b*--', label = r'$C_D$' )
 ax.set_xlim((0.5,30))
 ax.set_xlabel('Wake Length Multiplier')
 ax.set_ylabel('Aerodynamic coefficient')

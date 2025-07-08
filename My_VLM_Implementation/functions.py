@@ -214,21 +214,75 @@ def solve_steady_aero(alpha0, v_0, rho, A_w, A_b, y_mesh, reduced_wake=True):
 
     Gamma_b = - np.linalg.inv(combined_mats) @ ones * np.sin(alpha0) * v_0
     normal      = v_0 * rho * np.cos(alpha0) * (G_y * full_delta_y) @ Gamma_b
-    in_plane    = v_0 * rho * np.sin(alpha0) * (G_y * full_delta_y) @ Gamma_b # I think this is wrong actually
-
+    # in_plane    = v_0 * rho * np.sin(alpha0) * (G_y * full_delta_y) @ Gamma_b # I think this is wrong actually
+    # yes, it is wrong, see other function below with correct implementation. I will not remove the output as removing
+    # the underscore (L, _) in the various scripts would be a hassle
+    in_plane = normal
     return normal, in_plane
 
 @njit
 def aero_post_process(L_dist, D_dist, U, rho, S):
 
     L = 2 * - L_dist.sum() # * 2 to account for the whole wing and - since it's z positive downwards
-    D = 2 * D_dist.sum()
-
+    # D = 2 * D_dist.sum()
+    D = 7
     C_L = L / (1/2 * rho * U**2 * S)
     C_D = D / (1/2 * rho * U**2 * S)
     return L, D, C_L, C_D
 
+@njit
+def solve_steady_L_and_D(alpha0, v_0, rho, A_w, A_b, y_mesh, reduced_wake=True):
 
+    if reduced_wake: # since we are calculating the steady solution it makes sense that the wake would be reduced (long panels).
+        n_v = A_w.shape[2]
+        m_v = int(A_b.shape[1] / n_v)
+        P_b = np.hstack(
+                            (np.zeros((n_v, (m_v-1) * n_v)), np.eye(n_v))
+                        )
+
+    """
+    with the assumption that all of the panels are aligned with the x and y axes, we can just take the z component of
+    the first dimension in the A matrices (which corresponds to the z component of the velocity vectors obtained upon
+    multiplication by the respective vorticity vectors)
+    """
+    # uz_component = np.s_[2, :, :] # slice objects are not supported by njit
+    A_b_x, A_w_x = A_b[0, :, :], A_w[0, :, :]
+    A_b_z = A_b[2, :, :]
+    A_w_z = A_w[2, :, :]
+
+    #NumbaPerformanceWarning: '@' is faster on contiguous arrays, called on (Array(float64, 2, 'A', False, aligned=True), Array(float64, 2, 'C', False, aligned=True))
+    A_b_z = np.ascontiguousarray(A_b_z)
+    A_w_z = np.ascontiguousarray(A_w_z)
+    P_b = np.ascontiguousarray(P_b)
+    A_b_x = np.ascontiguousarray(A_b_x)
+    A_w_x = np.ascontiguousarray(A_w_x)
+
+    combined_mats = A_b_z + A_w_z @ P_b
+    combined_mats_x = A_b_x + A_w_x @ P_b
+    ones = np.ones((A_b_z.shape[0], 1))
+    delta_y_vec = y_mesh[0:n_v] - y_mesh[1:(n_v+1)]
+    # delta_y_vec = np.tile(delta_y_vec, m_v) # np.tile is not supported either (this is a bit of a pain in the butt)
+    full_delta_y = np.empty(n_v * m_v)
+    for i in range(m_v):
+        full_delta_y[i * n_v: (i + 1) * n_v] = delta_y_vec
+    G_y = np.eye(m_v*n_v) - np.vstack(
+                                        (np.zeros( (n_v, m_v*n_v) ),
+                                        np.hstack(
+                                            (np.eye((m_v-1)*n_v), np.zeros(((m_v-1)*n_v, n_v)))
+                                                 )
+                                        )
+                                    )
+
+    # calculate both "lift" and "drag" (quotation marks since lift should be perpendicular to the free stream,
+    # see pg 33 of chapter 10 Introduction to nonlinear aeroelasticity)
+
+    Gamma_b = - np.linalg.inv(combined_mats) @ ones * np.sin(alpha0) * v_0
+    normal      = v_0 * rho * np.cos(alpha0) * (G_y * full_delta_y) @ Gamma_b
+    # in_plane    = v_0 * rho * np.sin(alpha0) * (G_y * full_delta_y) @ Gamma_b # I think this is wrong actually
+    # yes, it is wrong, see other function below with correct implementation. I will not remove the output as removing
+    # the underscore (L, _) in the various scripts would be a hassle
+    in_plane = None
+    return normal, in_plane
 
 
 
